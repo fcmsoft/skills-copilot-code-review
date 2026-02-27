@@ -1,15 +1,76 @@
-"""
-MongoDB database configuration and setup for Mergington High School API
+"""src.backend.database
+
+Database configuration and setup for Mergington High School API.
+
+By default the app tries to connect to MongoDB (see env var `MONGO_URI`).
+If MongoDB is not available (common in dev containers / exercises), the app
+falls back to an in-memory MongoDB-compatible stub provided by `mongomock`.
 """
 
-from pymongo import MongoClient
+from __future__ import annotations
+
+import logging
+import os
+
 from argon2 import PasswordHasher, exceptions as argon2_exceptions
+from pymongo import MongoClient
+from pymongo.errors import ServerSelectionTimeoutError
 
-# Connect to MongoDB
-client = MongoClient('mongodb://localhost:27017/')
-db = client['mergington_high']
-activities_collection = db['activities']
-teachers_collection = db['teachers']
+logger = logging.getLogger(__name__)
+
+
+def _int_env(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None or value == "":
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def _create_mongo_client() -> MongoClient:
+    mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+    timeout_ms = _int_env("MONGO_TIMEOUT_MS", 1500)
+
+    client = MongoClient(
+        mongo_uri,
+        serverSelectionTimeoutMS=timeout_ms,
+        connectTimeoutMS=timeout_ms,
+        socketTimeoutMS=timeout_ms,
+    )
+
+    # Force an early connection attempt so we can fall back quickly.
+    client.admin.command("ping")
+    logger.info("Connected to MongoDB at %s", mongo_uri)
+    return client
+
+
+def _create_fallback_client(reason: Exception) -> MongoClient:
+    try:
+        import mongomock  # type: ignore
+
+        logger.warning(
+            "MongoDB not reachable (%s). Falling back to in-memory mongomock.",
+            reason,
+        )
+        return mongomock.MongoClient()
+    except Exception as fallback_error:
+        logger.error(
+            "MongoDB not reachable and mongomock fallback failed: %s",
+            fallback_error,
+        )
+        raise
+
+
+try:
+    client = _create_mongo_client()
+except ServerSelectionTimeoutError as exc:
+    client = _create_fallback_client(exc)
+
+db = client["mergington_high"]
+activities_collection = db["activities"]
+teachers_collection = db["teachers"]
 
 # Methods
 

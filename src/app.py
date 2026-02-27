@@ -18,8 +18,13 @@ app = FastAPI(
     description="API for viewing and signing up for extracurricular activities"
 )
 
-# Initialize database with sample data if empty
-database.init_database()
+
+@app.on_event("startup")
+def _startup() -> None:
+    # Initialize database with sample data if empty.
+    # This is done at startup (not import time) so the app can start even when
+    # the DB is temporarily unavailable.
+    database.init_database()
 
 # Mount the static files directory for serving the frontend
 current_dir = Path(__file__).parent
