@@ -12,14 +12,22 @@ A super simple FastAPI application that allows students to view and sign up for 
 1. Install the dependencies:
 
    ```
-   pip install fastapi uvicorn
+   pip install -r requirements.txt
    ```
 
 2. Run the application:
 
    ```
-   python app.py
+   uvicorn src.app:app --reload
    ```
+
+## Database
+
+By default the API tries to connect to MongoDB using `MONGO_URI` (defaults to
+`mongodb://localhost:27017/`).
+
+If MongoDB is not available, the app automatically falls back to an in-memory
+MongoDB-compatible implementation using `mongomock`.
 
 3. Open your browser and go to:
    - API documentation: http://localhost:8000/docs
@@ -47,4 +55,4 @@ The application uses a simple data model with meaningful identifiers:
    - Name
    - Grade level
 
-All data is stored in memory, which means data will be reset when the server restarts.
+If the app is using the in-memory fallback, data will be reset when the server restarts.
